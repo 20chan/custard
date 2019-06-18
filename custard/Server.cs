@@ -20,10 +20,30 @@ namespace custard {
                             string.Join("<br>",
                                                 Directory.GetFiles("Files/")
                                                                         .Select(s => s.Substring(6))
-                                                                                                .Select(s => $"<a href='/custard/api/v1/files/{s}'>{s}</a>"))));
+                                                                                                .Select(s => $"<a href='/custard/api/v1/bundle/{s}'>{s}</a>"))));
         }
 
-        [Get("/custard/api/v1/files/{name}", ManuallyResponse = true)]
+        [Get("/custard/api/v1/bundle/{name}/hash")]
+        public async Task<string> GetHash(RouteServerBase.RouteContext ctx) {
+            string path = Path.Combine("Files", $"{ctx.Query.name}.hash128");
+            if (!File.Exists(path)) {
+                ctx.Response.StatusCode = 404;
+                return "file not found";
+            }
+
+            try {
+                return await File.ReadAllTextAsync(path);
+            }
+            catch (Exception ex) {
+                await Console.Error.WriteLineAsync("Error on copying file stream:");
+                await Console.Error.WriteLineAsync(ex.Message);
+
+                ctx.Response.StatusCode = 500;
+                return "server error";
+            }
+        }
+
+        [Get("/custard/api/v1/bundle/{name}", ManuallyResponse = true)]
         public async Task Upload(RouteServerBase.RouteContext ctx) {
             string path = Path.Combine("Files", ctx.Query.name);
             if (!File.Exists(path)) {
@@ -42,10 +62,10 @@ namespace custard {
                 }
             }
             catch (Exception ex) {
+                ctx.Response.StatusCode = 500;
                 await Console.Error.WriteLineAsync("Error on copying file stream:");
                 await Console.Error.WriteLineAsync(ex.Message);
                 ctx.Response.OutputStream.Close();
-                return;
             }
             finally {
                 ctx.Response.OutputStream.Close();
