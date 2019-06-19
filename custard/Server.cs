@@ -43,7 +43,7 @@ namespace custard {
             return Task.FromResult(bundle.LatestHash);
         }
 
-        [Get(API_PREFIX + "/bundles/{hash}")]
+        [Get(API_PREFIX + "/bundles/{hash}", ManuallyResponse = true)]
         public Task GetBundle(RouteServerBase.RouteContext ctx) {
             return HandleBundle(ctx.Response, ctx.Query.hash);
         }
