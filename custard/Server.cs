@@ -2,73 +2,81 @@ using System;
 using System.IO;
 using System.Text;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using CreamRoll;
 using static CreamRoll.RouteServer;
+using static custard.ServerInfo;
 
 namespace custard {
     public class Server {
         private readonly string indexHtml;
+        BundleManager bundle => BundleManager.Instance;
 
         public Server() {
             indexHtml = File.ReadAllText("Pages/index.html");
         }
 
-        [Get("/custard/", ContentType = "text/html; charset=utf8")]
+        [Get(ROUTE_PREFIX, ContentType = "text/html; charset=utf8")]
         public Task<string> Index(RouteServerBase.RouteContext ctx) {
+            return Task.FromResult("currently disabled");
             return Task.FromResult(indexHtml.Replace("{{files}}",
-                            string.Join("<br>",
-                                                Directory.GetFiles("Files/")
-                                                                        .Select(s => s.Substring(6))
-                                                                                                .Select(s => $"<a href='/custard/api/v1/bundle/{s}'>{s}</a>"))));
+                string.Join("<br>",
+                    Directory.GetFiles("bundles/")
+                        .Select(s => s.Substring(6))
+                        .Select(s => $"<a href='/custard/api/v1/bundle/{s}'>{s}</a>"))));
         }
 
-        [Get("/custard/api/v1/bundle/{name}/hash")]
-        public async Task<string> GetHash(RouteServerBase.RouteContext ctx) {
-            string path = Path.Combine("Files", $"{ctx.Query.name}.hash128");
-            if (!File.Exists(path)) {
-                ctx.Response.StatusCode = 404;
-                return "file not found";
-            }
-
-            try {
-                return await File.ReadAllTextAsync(path);
-            }
-            catch (Exception ex) {
-                await Console.Error.WriteLineAsync("Error on copying file stream:");
-                await Console.Error.WriteLineAsync(ex.Message);
-
-                ctx.Response.StatusCode = 500;
-                return "server error";
-            }
+        [Get(API_PREFIX + "/bundles")]
+        public Task<string> GetBundleHashList() {
+            return Task.FromResult(
+                $@"[{string.Join(',', bundle.GetHashes())}]");
         }
 
-        [Get("/custard/api/v1/bundle/{name}", ManuallyResponse = true)]
-        public async Task Upload(RouteServerBase.RouteContext ctx) {
-            string path = Path.Combine("Files", ctx.Query.name);
-            if (!File.Exists(path)) {
-                ctx.Response.StatusCode = 404;
-                ctx.Response.OutputStream.Close();
+        [Get(API_PREFIX + "/bundles/latest", ManuallyResponse = true)]
+        public Task GetLatestBundle(RouteServerBase.RouteContext ctx) {
+            return HandleBundle(ctx.Response, bundle.LatestHash);
+        }
+
+        [Get(API_PREFIX + "/bundles/latest/hash")]
+        public Task<string> GetLatestHash() {
+            return Task.FromResult(bundle.LatestHash);
+        }
+
+        [Get(API_PREFIX + "/bundles/{hash}")]
+        public Task GetBundle(RouteServerBase.RouteContext ctx) {
+            return HandleBundle(ctx.Response, ctx.Query.hash);
+        }
+
+        [Get(API_PREFIX + "/bundles/{hash}/hash")]
+        public Task<string> GetBundleHash(RouteServerBase.RouteContext ctx) {
+            return Task.FromResult(ctx.Query.hash);
+        }
+
+        private async Task HandleBundle(HttpListenerResponse response, string hash) {
+            if (!bundle.TryGetBundleOfHash(hash, out string path)) {
+                response.StatusCode = 404;
+                response.OutputStream.Close();
                 return;
             }
 
-            ctx.Response.ContentType = "application/octet-stream";
+            response.ContentType = "application/octet-stream";
 
             try {
                 using (var file = new FileStream(path, FileMode.Open)) {
-                    await file.CopyToAsync(ctx.Response.OutputStream);
-                    await ctx.Response.OutputStream.FlushAsync();
+                    await file.CopyToAsync(response.OutputStream);
+                    await response.OutputStream.FlushAsync();
                     file.Close();
                 }
             }
             catch (Exception ex) {
-                ctx.Response.StatusCode = 500;
+                response.StatusCode = 500;
                 await Console.Error.WriteLineAsync("Error on copying file stream:");
                 await Console.Error.WriteLineAsync(ex.Message);
-                ctx.Response.OutputStream.Close();
+                response.OutputStream.Close();
             }
             finally {
-                ctx.Response.OutputStream.Close();
+                response.OutputStream.Close();
             }
         }
     }

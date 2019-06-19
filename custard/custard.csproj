@@ -16,6 +16,13 @@
       <None Update="Files\test.txt">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
+      <None Update="Pages\adminPanel.html">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="bundles\00000000000000000000000000000000" />
     </ItemGroup>
 
 </Project>
