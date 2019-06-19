@@ -47,17 +47,34 @@ namespace custard {
         }
 
         public IEnumerable<string> GetHashes() {
-            return bundlesDirectory.GetDirectories().Select(d => d.Name);
+            return bundlesDirectory
+                .GetFiles()
+                .Select(d => d.Name)
+                .Where(IsValidHash);
+        }
+
+        private static bool IsValidHash(string hash) {
+            if (hash.Length != 32) {
+                return false;
+            }
+
+            foreach (var c in hash) {
+                if (!char.IsLetterOrDigit(c)) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public bool TryGetBundleOfHash(string hash, out string path) {
-            var dirs = bundlesDirectory.GetDirectories(hash);
-            if (dirs.Length == 0) {
+            var files = bundlesDirectory.GetFiles(hash);
+            if (files.Length == 0) {
                 path = null;
                 return false;
             }
 
-            path = dirs[0].FullName;
+            path = files[0].FullName;
             return true;
         }
     }

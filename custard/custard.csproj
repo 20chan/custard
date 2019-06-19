@@ -21,8 +21,4 @@
       </None>
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="bundles\00000000000000000000000000000000" />
-    </ItemGroup>
-
 </Project>
